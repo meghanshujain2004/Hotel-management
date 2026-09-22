@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Hotelcrm
+      dockerfile: Dockerfile
+    container_name: hotelcrm_backend
+    restart: always
+    environment:
+      - SECRET_KEY=django-insecure-prod-key-change-in-production-12345
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DB_ENGINE=sqlite3
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_db:/app
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hotelcrm_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend_db:
+  media_volume:
+  static_volume:

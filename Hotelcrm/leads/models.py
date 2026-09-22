@@ -19,6 +19,8 @@ class WhatsAppTemplate(models.Model):
     ]
 
     name = models.CharField(max_length=100, unique=True)
+    meta_template_name = models.CharField(max_length=100, blank=True, help_text="Approved template name in Meta Manager (e.g. hotel_booking_offer)")
+    language_code = models.CharField(max_length=10, default='en', help_text="Meta language code (e.g. en, en_US, hi)")
     outcome_trigger = models.CharField(max_length=50, choices=TRIGGER_CHOICES, unique=True)
     template_body = models.TextField(
         help_text="Placeholders available: {guest_name}, {phone}, {followup_date_time}, {gallery_url}, {booking_code}, {staff_name}, {manager_name}, {hotel_name}"
@@ -32,6 +34,32 @@ class WhatsAppTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_outcome_trigger_display()})"
+
+
+class WhatsAppMessageLog(models.Model):
+    STATUS_CHOICES = [
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('read', 'Read'),
+        ('failed', 'Failed'),
+    ]
+
+    lead = models.ForeignKey('Lead', on_delete=models.CASCADE, related_name='whatsapp_logs', null=True, blank=True)
+    recipient_phone = models.CharField(max_length=20)
+    template_name = models.CharField(max_length=100)
+    language_code = models.CharField(max_length=10, default='en')
+    rendered_body = models.TextField()
+    meta_message_id = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='sent')
+    error_details = models.TextField(blank=True, null=True)
+    dispatched_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"WhatsApp to {self.recipient_phone} ({self.template_name}) - {self.status}"
 
 
 class Lead(models.Model):

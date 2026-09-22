@@ -9,7 +9,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     ChangePasswordSerializer
 )
-from .permissions import IsAdminRole
+from .permissions import IsAdminRole, IsManagerRole
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -58,11 +58,12 @@ from rest_framework import filters
 
 class StaffViewSet(viewsets.ModelViewSet):
     """
-    Staff Management for Admin (Screen 6):
-    List, Retrieve, Update, and Delete staff members.
+    Staff Management for Admin & Manager:
+    - Admin can list, create, and delete Managers & Support staff.
+    - Manager can list, create, and delete Support staff only.
     """
     serializer_class = UserSerializer
-    permission_classes = [IsAdminRole]
+    permission_classes = [IsManagerRole]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['username', 'email', 'phone']
     ordering_fields = ['date_joined', 'username']
@@ -76,4 +77,51 @@ class StaffViewSet(viewsets.ModelViewSet):
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == 'true')
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        role = request.data.get('role', 'support')
+        username = request.data.get('username')
+        email = request.data.get('email', '')
+        phone = request.data.get('phone', '')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({'detail': 'Username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Managers can only create Support staff
+        if user.role == 'manager' and role != 'support':
+            return Response({'detail': 'Managers can only add Customer Support staff.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if CustomUser.objects.filter(username=username).exists():
+            return Response({'detail': 'A user with this username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if phone and CustomUser.objects.filter(phone=phone).exists():
+            return Response({'detail': 'A user with this phone number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_user = CustomUser.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            role=role,
+            phone=phone if phone else None
+        )
+        serializer = UserSerializer(new_user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        target_user = self.get_object()
+        user = request.user
+
+        # Managers can only remove Support staff
+        if user.role == 'manager' and target_user.role != 'support':
+            return Response({'detail': 'Managers can only remove Customer Support staff.'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Cannot remove superuser or oneself
+        if target_user.id == user.id:
+            return Response({'detail': 'You cannot remove your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user.delete()
+        return Response({'message': 'Staff member removed successfully.'}, status=status.HTTP_200_OK)
+
 

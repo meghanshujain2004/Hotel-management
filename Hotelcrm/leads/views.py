@@ -50,6 +50,8 @@ class LeadViewSet(viewsets.ModelViewSet):
         is_escalated_param = self.request.query_params.get('is_escalated')
         escalation_level_param = self.request.query_params.get('escalation_level')
 
+        has_followup_param = self.request.query_params.get('has_followup')
+
         if status_param:
             queryset = queryset.filter(status=status_param)
         if source_param:
@@ -64,6 +66,8 @@ class LeadViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(is_escalated=is_escalated_param.lower() == 'true')
         if escalation_level_param:
             queryset = queryset.filter(escalation_level=escalation_level_param)
+        if has_followup_param is not None and has_followup_param.lower() == 'true':
+            queryset = queryset.filter(followup_date_time__isnull=False)
 
         return queryset
 
@@ -167,6 +171,12 @@ class LeadTimelineView(APIView):
         return Response({
             'lead_id': lead.id,
             'guest_name': lead.guest_name,
+            'phone': lead.phone,
+            'status': lead.status,
+            'followup_date_time': lead.followup_date_time,
+            'last_contacted_at': lead.last_contacted_at,
+            'is_escalated': lead.is_escalated,
+            'escalation_level': lead.escalation_level,
             'activities': serializer.data
         }, status=status.HTTP_200_OK)
 
@@ -263,3 +273,61 @@ class WhatsAppTemplateViewSet(viewsets.ModelViewSet):
     queryset = WhatsAppTemplate.objects.all()
     serializer_class = WhatsAppTemplateSerializer
     permission_classes = [IsAdminRole]
+
+
+class DueFollowupsView(APIView):
+    """
+    Returns due/overdue scheduled follow-ups for the active user (or all if admin/manager).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        now = timezone.now()
+        # Look for scheduled followups up to 1 hour in the future or in the past (overdue)
+        lookahead = now + timezone.timedelta(hours=1)
+
+        qs = Lead.objects.filter(followup_date_time__isnull=False)
+        if user.role == 'support':
+            qs = qs.filter(assigned_to=user)
+
+        due_leads = qs.filter(followup_date_time__lte=lookahead).order_by('followup_date_time')
+        overdue_leads = qs.filter(followup_date_time__lt=now)
+
+        serializer = LeadListSerializer(due_leads, many=True)
+        return Response({
+            'due_count': due_leads.count(),
+            'overdue_count': overdue_leads.count(),
+            'due_leads': serializer.data,
+        }, status=status.HTTP_200_OK)
+
+
+class SendTemplateMessageView(APIView):
+    """
+    Manual dispatch endpoint for sending Meta WhatsApp templates to guest leads.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        lead_id = request.data.get('lead_id')
+        template_id = request.data.get('template_id')
+        trigger = request.data.get('trigger')
+
+        lead = get_object_or_404(Lead, pk=lead_id)
+
+        if template_id:
+            template = get_object_or_404(WhatsAppTemplate, pk=template_id)
+            trigger = template.outcome_trigger
+        elif not trigger:
+            return Response({'detail': 'Either template_id or trigger is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        log = WhatsAppService.dispatch_for_trigger(trigger=trigger, lead=lead, user=request.user)
+
+        if log:
+            return Response({
+                'message': f'Meta WhatsApp template dispatched successfully to {lead.phone}',
+                'status': log.whatsapp_status,
+                'rendered_body': log.whatsapp_message_body,
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({'detail': 'Failed to dispatch WhatsApp template message.'}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,7 +1,8 @@
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Case, When, Value, IntegerField
-from .models import Lead, ActivityLog, WhatsAppTemplate
+from .models import Lead, ActivityLog, WhatsAppTemplate, WhatsAppMessageLog
+from .whatsapp_client import WhatsAppManager
 
 
 class WhatsAppService:
@@ -32,7 +33,7 @@ class WhatsAppService:
             context = {
                 'guest_name': lead.guest_name,
                 'phone': lead.phone,
-                'followup_date_time': lead.followup_date_time.strftime('%b %d, %Y at %I:%M %p') if lead.followup_date_time else '',
+                'followup_date_time': lead.followup_date_time.strftime('%b %d, %Y at %I:%M %p') if lead.followup_date_time else 'scheduled time',
                 'staff_name': lead.assigned_to.get_full_name() or lead.assigned_to.username if lead.assigned_to else 'Support Staff',
                 'manager_name': lead.assigned_manager.get_full_name() or lead.assigned_manager.username if lead.assigned_manager else 'Manager',
             }
@@ -41,20 +42,76 @@ class WhatsAppService:
 
             message_body = cls.render_template(template.template_body, context)
 
-            # In production, integrate WhatsApp Cloud API / Twilio here.
-            # We record the activity log with the rendered message and dispatch status.
+            # Meta Graph API template dispatch params
+            tpl_name = template.meta_template_name if template.meta_template_name else template.name
+            
+            if trigger == 'interested' or tpl_name == 'hotel_guest_interested':
+                # hotel_guest_interested: {{1}} Guest Name, {{2}} Offer Code, {{3}} Gallery Link
+                params = [
+                    lead.guest_name,
+                    context.get('booking_code', 'HOTELVIP15'),
+                    context.get('gallery_url', 'https://hotelcrm.example.com/gallery')
+                ]
+            elif trigger in ['escalation_day1', 'escalation_day2', 'escalation_day3', 'escalation_day4'] or tpl_name == 'hotel_sla_escalation_alert':
+                # hotel_sla_escalation_alert: {{1}} Guest Name, {{2}} Mobile No, {{3}} Assigned Agent, {{4}} Inactivity Period
+                days_map = {
+                    'escalation_day1': '1 Day',
+                    'escalation_day2': '2 Days',
+                    'escalation_day3': '3 Days',
+                    'escalation_day4': '4 Days',
+                }
+                inactivity_period = days_map.get(trigger, '1 Day')
+                agent_name = lead.assigned_to.get_full_name() or lead.assigned_to.username if lead.assigned_to else 'Unassigned Agent'
+                params = [
+                    lead.guest_name,
+                    lead.phone,
+                    agent_name,
+                    inactivity_period
+                ]
+            else:
+                params = [lead.guest_name, context.get('booking_code', 'HOTELVIP15')]
+
+            api_result = WhatsAppManager.send_template(
+                recipient_phone=lead.phone,
+                template_name=tpl_name,
+                language_code=template.language_code or 'en',
+                parameters=params
+            )
+
+            is_success = api_result.get('success', False)
+            msg_id = api_result.get('message_id')
+            err_info = str(api_result.get('error', '')) if not is_success else None
+
+            # Create detailed WhatsApp Message Audit Log
+            WhatsAppMessageLog.objects.create(
+                lead=lead,
+                recipient_phone=lead.phone,
+                template_name=tpl_name,
+                language_code=template.language_code or 'en',
+                rendered_body=message_body,
+                meta_message_id=msg_id,
+                status='sent' if is_success else 'failed',
+                error_details=err_info,
+                dispatched_by=user,
+            )
+
+            if is_success:
+                log_notes = f"WhatsApp message sent via template '{tpl_name}'"
+            else:
+                log_notes = f"WhatsApp message delivery failed"
+
+            # Record Activity Log entry for timeline
             log = ActivityLog.objects.create(
                 lead=lead,
                 user=user,
                 activity_type='whatsapp_dispatched',
-                notes=f"Automated WhatsApp ({template.name}) sent to {lead.phone}",
+                notes=log_notes,
                 whatsapp_template_name=template.name,
                 whatsapp_message_body=message_body,
-                whatsapp_status='sent',
+                whatsapp_status='sent' if is_success else 'failed',
             )
             return log
         except Exception as e:
-            # Failure fallback
             return None
 
 
@@ -68,7 +125,7 @@ class QueueService:
         1. Urgent priority and escalations
         2. Date created (FIFO)
         """
-        closed_statuses = ['registered', 'not_interested', 'lost']
+        closed_statuses = ['registered', 'interested', 'completed_followup', 'not_interested', 'lost']
         
         # Priority weight
         priority_weight = Case(
@@ -113,10 +170,47 @@ class QueueService:
     def get_active_lead_for_user(cls, user):
         """
         Returns the top active lead in the queue along with queue position stats.
+        If user has no assigned lead pending, auto-claims & assigns the top unassigned lead to user!
         """
+        closed_statuses = ['registered', 'interested', 'completed_followup', 'not_interested', 'lost']
+
+        # First check if user already has an active lead assigned
         qs = cls.get_queue_queryset(user)
-        total_in_queue = qs.count()
         current_lead = qs.first()
+
+        if not current_lead:
+            # Look for any unassigned active lead in system
+            unassigned_qs = Lead.objects.filter(
+                assigned_to__isnull=True
+            ).exclude(
+                status__in=closed_statuses
+            ).order_by('created_at')
+
+            unassigned_lead = unassigned_qs.first()
+            if unassigned_lead:
+                unassigned_lead.assigned_to = user
+                if hasattr(user, 'role') and user.role == 'manager':
+                    unassigned_lead.assigned_manager = user
+                unassigned_lead.save(update_fields=['assigned_to', 'assigned_manager'] if (hasattr(user, 'role') and user.role == 'manager') else ['assigned_to'])
+
+                # Log activity
+                ActivityLog.objects.create(
+                    lead=unassigned_lead,
+                    user=user,
+                    activity_type='reassigned',
+                    notes=f"Lead auto-assigned to {user.username} from calling queue."
+                )
+
+                current_lead = unassigned_lead
+
+        # If user is Admin or Manager and still no lead, return top active lead from system
+        if not current_lead and (getattr(user, 'role', '') in ['admin', 'manager'] or getattr(user, 'is_superuser', False)):
+            current_lead = Lead.objects.exclude(status__in=closed_statuses).order_by('created_at').first()
+
+        total_in_queue = cls.get_queue_queryset(user).count()
+        if total_in_queue == 0 and current_lead:
+            total_in_queue = 1
+
         return current_lead, total_in_queue
 
 
@@ -144,13 +238,18 @@ class DispositionService:
         lead.save()
 
         # 1. Log Phone Call Activity
+        activity_notes = notes.strip() if notes else f"Call completed. Outcome: {lead.get_status_display()}"
+        if lead.followup_date_time:
+            fu_str = lead.followup_date_time.strftime('%b %d, %Y at %I:%M %p') if hasattr(lead.followup_date_time, 'strftime') else str(lead.followup_date_time)
+            activity_notes += f"\n📅 Scheduled Follow-up: {fu_str}"
+
         ActivityLog.objects.create(
             lead=lead,
             user=user,
             activity_type='call',
             disposition=disposition_status,
             call_duration_seconds=call_duration,
-            notes=notes or f"Call completed. Outcome: {lead.get_status_display()}"
+            notes=activity_notes
         )
 
         # 2. Trigger Automated WhatsApp Template based on outcome

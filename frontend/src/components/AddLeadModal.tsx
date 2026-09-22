@@ -67,8 +67,8 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onL
   };
 
   return (
-    <div className="modal-backdrop animate-fade-in">
-      <div className="modal-card">
+    <div className="add-lead-modal-overlay animate-fade-in">
+      <div className="add-lead-modal-card">
         <div className="modal-header">
           <div className="modal-title-wrapper">
             <div className="modal-icon-crown">

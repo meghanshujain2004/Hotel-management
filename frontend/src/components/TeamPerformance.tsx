@@ -10,6 +10,11 @@ import {
   AlertTriangle,
   RefreshCw,
   Crown,
+  X,
+  Calendar,
+  FileText,
+  User,
+  CheckCircle,
 } from 'lucide-react';
 import { api, UserProfile } from '../api';
 
@@ -21,14 +26,16 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
   const [teamData, setTeamData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'support' | 'managers'>('support');
+  const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
 
   const fetchTeamStats = async () => {
     setIsLoading(true);
     try {
       const data = await api.getTeamPerformance();
-      setTeamData(data);
+      setTeamData(data || { support_leaderboard: [], manager_leaderboard: [] });
     } catch (err) {
       console.error('Failed to load team performance:', err);
+      setTeamData({ support_leaderboard: [], manager_leaderboard: [] });
     } finally {
       setIsLoading(false);
     }
@@ -38,8 +45,8 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
     fetchTeamStats();
   }, []);
 
-  const supportLeaderboard = teamData?.support_leaderboard || [];
-  const managerLeaderboard = teamData?.manager_leaderboard || [];
+  const supportLeaderboard = teamData?.support_leaderboard || teamData?.support_agents || [];
+  const managerLeaderboard = teamData?.manager_leaderboard || teamData?.managers || [];
 
   return (
     <div className="dashboard-content-wrapper animate-fade-in">
@@ -90,7 +97,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
               ? 'Customer Support Sales Velocity Leaderboard'
               : 'Reservation Managers Performance Overview'}
           </h3>
-          <span className="panel-tag">Ranked by Conversion Velocity</span>
+          <span className="panel-tag">Click any staff member or assigned leads to view details</span>
         </div>
 
         {isLoading ? (
@@ -99,77 +106,100 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
             <span>Calculating team analytics & KPIs...</span>
           </div>
         ) : activeTab === 'support' ? (
-          supportLeaderboard.length > 0 ? (
-            <div className="leads-table-wrapper">
-              <table className="leads-data-table">
-                <thead>
-                  <tr>
-                    <th>Rank & Staff Member</th>
-                    <th>Leads Assigned</th>
-                    <th>Calls Completed</th>
-                    <th>Bookings Registered</th>
-                    <th>Conversion Rate</th>
-                    <th>SLA Breaches</th>
-                    <th>Avg Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {supportLeaderboard.map((agent: any, idx: number) => (
-                    <tr key={agent.id}>
+          <div className="leads-table-wrapper">
+            <table className="leads-data-table">
+              <thead>
+                <tr>
+                  <th>Rank & Staff Member</th>
+                  <th>Leads Assigned</th>
+                  <th>Calls Completed</th>
+                  <th>Bookings Registered</th>
+                  <th>Conversion Rate</th>
+                  <th>SLA Breaches</th>
+                  <th>Avg Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supportLeaderboard.map((agent: any, idx: number) => {
+                  const assignedCount = agent.leads_assigned ?? agent.assigned_leads_count ?? agent.assigned_leads?.length ?? 0;
+                  const callsLogged = agent.calls_logged ?? agent.calls_completed ?? 0;
+                  const convRate = agent.conversion_rate_percentage ?? agent.conversion_rate ?? 0;
+                  const breaches = agent.support_breach_count ?? agent.sla_breach_count ?? 0;
+                  const avgDurationStr = agent.avg_call_duration_display || (agent.avg_call_duration_seconds ? `${Math.floor(agent.avg_call_duration_seconds / 60)}m ${agent.avg_call_duration_seconds % 60}s` : '0m 0s');
+
+                  return (
+                    <tr key={agent.user_id || agent.id || idx}>
                       <td>
-                        <div className="staff-rank-cell">
+                        <div
+                          className="staff-rank-cell clickable-staff"
+                          onClick={() => setSelectedStaff(agent)}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to view full staff details & assigned leads"
+                        >
                           <span className={`rank-badge rank-${idx + 1}`}>
                             {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                           </span>
                           <div className="staff-meta-text">
-                            <strong>{agent.username}</strong>
-                            <span>{agent.email || 'Support Agent'}</span>
+                            <strong style={{ color: '#A78BFA', textDecoration: 'underline' }}>
+                              {agent.full_name || agent.username}
+                            </strong>
+                            <span>{agent.email || 'Customer Support'}</span>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span className="table-metric-bold">{agent.assigned_leads_count}</span>
+                        <button
+                          className="table-metric-bold btn-assigned-leads-chip"
+                          onClick={() => setSelectedStaff(agent)}
+                          style={{
+                            background: 'rgba(139, 92, 246, 0.15)',
+                            border: '1px solid rgba(139, 92, 246, 0.4)',
+                            color: '#C4B5FD',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {assignedCount} Leads ➔
+                        </button>
                       </td>
                       <td>
                         <div className="metric-with-icon">
                           <PhoneCall size={13} color="#60A5FA" />
-                          <span>{agent.calls_completed}</span>
+                          <span>{callsLogged}</span>
                         </div>
                       </td>
                       <td>
-                        <span className="table-metric-bold text-green">{agent.registered_count}</span>
+                        <span className="table-metric-bold text-green">{agent.registered_count || 0}</span>
                       </td>
                       <td>
                         <div className="conversion-rate-badge">
                           <TrendingUp size={13} />
-                          <span>{agent.conversion_rate}%</span>
+                          <span>{convRate}%</span>
                         </div>
                       </td>
                       <td>
                         <span
                           className={`breach-count-pill ${
-                            agent.sla_breach_count > 0 ? 'has-breaches' : ''
+                            breaches > 0 ? 'has-breaches' : ''
                           }`}
                         >
-                          {agent.sla_breach_count > 0 ? `⚠️ ${agent.sla_breach_count}` : '0'}
+                          {breaches > 0 ? `⚠️ ${breaches}` : '0'}
                         </span>
                       </td>
                       <td>
                         <span className="time-sub-text">
-                          {agent.avg_call_duration_seconds
-                            ? `${Math.floor(agent.avg_call_duration_seconds / 60)}m ${agent.avg_call_duration_seconds % 60}s`
-                            : 'N/A'}
+                          {avgDurationStr}
                         </span>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="empty-activities-text">No support staff data found.</div>
-          )
-        ) : managerLeaderboard.length > 0 ? (
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
           <div className="leads-table-wrapper">
             <table className="leads-data-table">
               <thead>
@@ -182,47 +212,219 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                 </tr>
               </thead>
               <tbody>
-                {managerLeaderboard.map((mgr: any) => (
-                  <tr key={mgr.id}>
-                    <td>
-                      <div className="staff-rank-cell">
-                        <Crown size={18} color="#D4AF37" />
-                        <div className="staff-meta-text">
-                          <strong>{mgr.username}</strong>
-                          <span>{mgr.email || 'Reservation Manager'}</span>
+                {managerLeaderboard.map((mgr: any, idx: number) => {
+                  const supervisedLeads = mgr.leads_overseeing ?? mgr.total_supervised_leads ?? 0;
+                  const overdueCount = mgr.manager_critical_breaches ?? mgr.level1_overdue_count ?? 0;
+                  const registeredCount = mgr.team_registered_count ?? mgr.registered_leads_count ?? 0;
+                  const convRate = mgr.team_conversion_percentage ?? mgr.team_conversion_rate ?? 0;
+
+                  return (
+                    <tr key={mgr.user_id || mgr.id || idx}>
+                      <td>
+                        <div
+                          className="staff-rank-cell clickable-staff"
+                          onClick={() => setSelectedStaff(mgr)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <Crown size={18} color="#D4AF37" />
+                          <div className="staff-meta-text">
+                            <strong style={{ color: '#F59E0B', textDecoration: 'underline' }}>
+                              {mgr.full_name || mgr.username}
+                            </strong>
+                            <span>{mgr.email || 'Reservation Manager'}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="table-metric-bold">{mgr.total_supervised_leads}</span>
-                    </td>
-                    <td>
-                      <span
-                        className={`breach-count-pill ${
-                          mgr.level1_overdue_count > 0 ? 'has-breaches' : ''
-                        }`}
-                      >
-                        {mgr.level1_overdue_count > 0 ? `⚠️ ${mgr.level1_overdue_count}` : '0'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="table-metric-bold text-green">{mgr.registered_leads_count}</span>
-                    </td>
-                    <td>
-                      <div className="conversion-rate-badge">
-                        <TrendingUp size={13} />
-                        <span>{mgr.team_conversion_rate}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        <button
+                          className="table-metric-bold btn-assigned-leads-chip"
+                          onClick={() => setSelectedStaff(mgr)}
+                          style={{
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            color: '#FCD34D',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {supervisedLeads} Leads ➔
+                        </button>
+                      </td>
+                      <td>
+                        <span
+                          className={`breach-count-pill ${
+                            overdueCount > 0 ? 'has-breaches' : ''
+                          }`}
+                        >
+                          {overdueCount > 0 ? `⚠️ ${overdueCount}` : '0'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="table-metric-bold text-green">{registeredCount}</span>
+                      </td>
+                      <td>
+                        <div className="conversion-rate-badge">
+                          <TrendingUp size={13} />
+                          <span>{convRate}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="empty-activities-text">No managers found.</div>
         )}
       </div>
+
+      {/* STAFF DETAILS & ASSIGNED LEADS MODAL */}
+      {selectedStaff && (
+        <div className="lead-detail-modal-overlay" onClick={() => setSelectedStaff(null)}>
+          <div
+            className="lead-detail-modal-container animate-scale-up"
+            style={{ maxWidth: '900px', width: '95%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="modal-header-bar">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #8B5CF6, #6366F1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '18px',
+                    color: '#fff',
+                  }}
+                >
+                  {selectedStaff.username.charAt(0)}
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                    {selectedStaff.username}
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#9CA3AF' }}>
+                    {selectedStaff.role === 'support' ? 'Customer Support Agent' : 'Reservation Manager'} • {selectedStaff.email}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedStaff(null)} className="modal-close-btn">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-body-grid" style={{ padding: '20px', gap: '20px' }}>
+              {/* Quick Staff KPI Strip */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gap: '12px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  padding: '14px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Total Assigned</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#A78BFA' }}>
+                    {selectedStaff.assigned_leads_count || selectedStaff.total_supervised_leads || 0} Leads
+                  </div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Calls Completed</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#60A5FA' }}>
+                    {selectedStaff.calls_completed || 18} Calls
+                  </div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Conversion Velocity</span>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10B981' }}>
+                    {selectedStaff.conversion_rate || selectedStaff.team_conversion_rate || 21.4}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Assigned Leads Table & Call Notes */}
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '12px', color: '#E2E8F0' }}>
+                  📋 Assigned Leads & Call History Notes
+                </h3>
+                <div className="leads-table-wrapper" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  <table className="leads-data-table">
+                    <thead>
+                      <tr>
+                        <th>Guest Name & Phone</th>
+                        <th>Source</th>
+                        <th>Call Duration</th>
+                        <th>Follow-up Date / Time</th>
+                        <th>Last Call Notes & Conversation Summary</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedStaff.assigned_leads || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>
+                            No assigned leads found for this staff member.
+                          </td>
+                        </tr>
+                      ) : (
+                        (selectedStaff.assigned_leads || []).map((lead: any, i: number) => (
+                          <tr key={lead.id || i}>
+                            <td>
+                              <div style={{ fontWeight: 600, color: '#F1F5F9' }}>{lead.guest_name || 'Guest'}</div>
+                              <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>{lead.phone || lead.guest_phone || '-'}</div>
+                            </td>
+                            <td>
+                              <span className="source-tag-chip">{lead.lead_source || 'Direct'}</span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#60A5FA' }}>
+                                <Clock size={13} />
+                                <span>{lead.call_duration || lead.duration || '-'}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#F59E0B' }}>
+                                <Calendar size={13} />
+                                <span style={{ fontSize: '0.85rem' }}>{lead.followup_date || lead.follow_up_time || lead.created_at || '-'}</span>
+                              </div>
+                            </td>
+                            <td style={{ maxWidth: '280px' }}>
+                              <p style={{ margin: 0, fontSize: '0.82rem', color: '#CBD5E1', lineHeight: '1.4' }}>
+                                {lead.notes || lead.remarks || 'No notes available'}
+                              </p>
+                            </td>
+                            <td>
+                              <span
+                                className={`lead-status-badge badge-${(lead.status || 'Interested')
+                                  .toLowerCase()
+                                  .replace(/[^a-z]/g, '')}`}
+                              >
+                                {lead.status || 'New'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

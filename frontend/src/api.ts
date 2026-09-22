@@ -8,6 +8,8 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: 'admin' | 'manager' | 'support';
+  first_name?: string;
+  last_name?: string;
   profile_picture?: string | null;
   is_active: boolean;
   date_joined: string;
@@ -201,6 +203,19 @@ export const api = {
     return res.json();
   },
 
+  async getNextQueueLead(): Promise<any> {
+    return this.getActiveQueue();
+  },
+
+  // Leads: Due Followup Calls
+  async getDueFollowups(): Promise<{ due_count: number; overdue_count: number; due_leads: any[] }> {
+    const res = await fetch(`${API_BASE_URL}/api/leads/followups/due/`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!res.ok) return { due_count: 0, overdue_count: 0, due_leads: [] };
+    return res.json();
+  },
+
   // Leads: Submit Post-Call Disposition
   async submitDisposition(data: {
     lead_id: number;
@@ -217,6 +232,30 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || 'Failed to submit disposition');
+    }
+    return res.json();
+  },
+
+  async logDisposition(data: {
+    lead_id: number;
+    disposition: string;
+    call_duration_seconds: number;
+    notes: string;
+    followup_date_time?: string | null;
+  }): Promise<any> {
+    return this.submitDisposition(data);
+  },
+
+  // Leads: Manual WhatsApp Template Dispatch
+  async sendWhatsAppTemplate(data: { lead_id: number; trigger?: string; template_id?: number }): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/api/leads/whatsapp/send-template/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to dispatch WhatsApp template');
     }
     return res.json();
   },

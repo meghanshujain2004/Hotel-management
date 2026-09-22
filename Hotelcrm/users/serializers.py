@@ -5,7 +5,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model=CustomUser
-        fields=['id','username','email','phone','role','profile_picture','is_active','date_joined']
+        fields=['id','username','email','phone','role','gender','profile_picture','is_active','date_joined']
         read_only_fields=['date_joined']
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -13,7 +13,7 @@ class RegisterUserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model=CustomUser
-        fields=['username','email','password','role','phone']
+        fields=['username','email','password','role','phone','gender']
 
     def create(self,validated_data):
         user=CustomUser.objects.create_user(
@@ -21,7 +21,8 @@ class RegisterUserSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
             role=validated_data['role'],
-            phone=validated_data['phone']
+            phone=validated_data['phone'],
+            gender=validated_data.get('gender', 'male')
         )
         return user
 

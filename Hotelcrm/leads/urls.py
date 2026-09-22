@@ -8,7 +8,9 @@ from .views import (
     ReassignLeadView,
     EscalationFeedView,
     CheckEscalationsView,
-    WhatsAppTemplateViewSet
+    WhatsAppTemplateViewSet,
+    DueFollowupsView,
+    SendTemplateMessageView,
 )
 
 router = DefaultRouter()
@@ -19,6 +21,12 @@ urlpatterns = [
     # Customer Support Calling Workspace (Screen 5)
     path('queue/active/', ActiveQueueView.as_view(), name='queue-active'),
     path('queue/disposition/', DispositionSubmitView.as_view(), name='queue-disposition'),
+
+    # Scheduled Follow-ups Due Reminders
+    path('followups/due/', DueFollowupsView.as_view(), name='followups-due'),
+
+    # Meta WhatsApp Template Dispatches
+    path('whatsapp/send-template/', SendTemplateMessageView.as_view(), name='whatsapp-send-template'),
 
     # Escalations & SLA Monitoring (Screen 6 & Screen 8)
     path('escalations/', EscalationFeedView.as_view(), name='escalations-feed'),

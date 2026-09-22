@@ -1,13 +1,19 @@
 from pathlib import Path
 from decouple import config
 
+try:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+except ImportError:
+    pass
+
 # Base directory of the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security Settings (loaded from .env file)
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
 # Apps installed in this project
 INSTALLED_APPS = [
@@ -61,13 +67,30 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# Database - using SQLite for now (easy, no setup needed)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Database Configuration (supports MySQL & SQLite)
+DB_ENGINE = config('DB_ENGINE', default='sqlite3')
+
+if DB_ENGINE == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': config('DB_NAME', default='hotelcrm_db'),
+            'USER': config('DB_USER', default='root'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='127.0.0.1'),
+            'PORT': config('DB_PORT', default='3306'),
+            'OPTIONS': {
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -85,6 +108,7 @@ USE_TZ = True
 
 # Static and Media files
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -104,6 +128,13 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ROTATE_REFRESH_TOKENS': True,
+}
+
 # OpenAPI / Swagger Settings
 SPECTACULAR_SETTINGS = {
     'TITLE': 'HotelCRM API',
@@ -114,6 +145,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 # CORS - Allow React website and Mobile App to connect to Django
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',   # React web app
     'http://localhost:8081',   # React Native mobile app
@@ -121,3 +153,10 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# WhatsApp Meta Graph API Settings
+WHATSAPP_ACCESS_TOKEN="EAAJymtXMhyMBPvjvdJ36d2TXbQdO9gobf2DYzRZB4n003sYrZBHZCU5ZArFPsncml64UBvZBlZASr1r54bDdMbrwoHh7p7PuU0eu1ixffq3giZACxWplDDZAAimSyvBDFcHaI1P9ZCZBUxZBQhjtxeaVCBrXYJPvyHGQjufFihOtma0CHtXLX4LRrGcDPFl0FLG2NJtcQZDZD"
+WHATSAPP_PHONE_NUMBER_ID="809309708934130"
+WHATSAPP_BUSINESS_ACCOUNT_ID="782340904682210"
+WHATSAPP_APP_ID="688959290902307"
+ 
+ 

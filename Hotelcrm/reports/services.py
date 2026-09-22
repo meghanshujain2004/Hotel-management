@@ -139,7 +139,24 @@ class TeamPerformanceService:
         support_breaches = leads.aggregate(total_b=Sum('support_breach_count'))['total_b'] or 0
         active_escalations = leads.filter(is_escalated=True).count()
 
+        assigned_leads_list = []
+        for lead in leads.select_related('assigned_to', 'assigned_manager')[:50]:
+            sec = getattr(lead, 'last_call_duration', 0) or 0
+            dur_str = f"{sec // 60}m {sec % 60}s" if sec > 0 else "0m 0s"
+            notes_str = getattr(lead, 'last_disposition_note', '') or getattr(lead, 'inquiry_details', '') or 'No notes recorded'
+            assigned_leads_list.append({
+                'id': lead.id,
+                'guest_name': lead.guest_name,
+                'phone': getattr(lead, 'phone', ''),
+                'lead_source': lead.get_source_display() if hasattr(lead, 'get_source_display') else getattr(lead, 'source', 'direct'),
+                'status': lead.get_status_display() if hasattr(lead, 'get_status_display') else getattr(lead, 'status', 'new'),
+                'call_duration': dur_str,
+                'followup_date': lead.followup_date_time.strftime('%Y-%m-%d %H:%M') if lead.followup_date_time else 'N/A',
+                'notes': notes_str,
+            })
+
         return {
+            'id': user.id,
             'user_id': user.id,
             'username': user.username,
             'full_name': user.get_full_name() or user.username,
@@ -147,13 +164,18 @@ class TeamPerformanceService:
             'phone': user.phone,
             'role': user.role,
             'leads_assigned': total_assigned,
+            'assigned_leads_count': total_assigned,
             'calls_logged': calls_logged,
+            'calls_completed': calls_logged,
             'avg_call_duration_seconds': int(avg_duration),
             'avg_call_duration_display': f"{int(avg_duration // 60)}m {int(avg_duration % 60)}s",
             'registered_count': registered_count,
             'conversion_rate_percentage': conversion_rate,
+            'conversion_rate': conversion_rate,
             'support_breach_count': support_breaches,
+            'sla_breach_count': support_breaches,
             'active_escalations': active_escalations,
+            'assigned_leads': assigned_leads_list,
         }
 
     @classmethod
@@ -171,7 +193,24 @@ class TeamPerformanceService:
         manager_breaches = leads.aggregate(total_b=Sum('manager_breach_count'))['total_b'] or 0
         active_escalations = leads.filter(is_escalated=True).count()
 
+        assigned_leads_list = []
+        for lead in leads.select_related('assigned_to', 'assigned_manager')[:50]:
+            sec = getattr(lead, 'last_call_duration', 0) or 0
+            dur_str = f"{sec // 60}m {sec % 60}s" if sec > 0 else "0m 0s"
+            notes_str = getattr(lead, 'last_disposition_note', '') or getattr(lead, 'inquiry_details', '') or 'No notes recorded'
+            assigned_leads_list.append({
+                'id': lead.id,
+                'guest_name': lead.guest_name,
+                'phone': getattr(lead, 'phone', ''),
+                'lead_source': lead.get_source_display() if hasattr(lead, 'get_source_display') else getattr(lead, 'source', 'direct'),
+                'status': lead.get_status_display() if hasattr(lead, 'get_status_display') else getattr(lead, 'status', 'new'),
+                'call_duration': dur_str,
+                'followup_date': lead.followup_date_time.strftime('%Y-%m-%d %H:%M') if lead.followup_date_time else 'N/A',
+                'notes': notes_str,
+            })
+
         return {
+            'id': user.id,
             'user_id': user.id,
             'username': user.username,
             'full_name': user.get_full_name() or user.username,
@@ -179,11 +218,16 @@ class TeamPerformanceService:
             'phone': user.phone,
             'role': user.role,
             'leads_overseeing': total_overseeing,
+            'total_supervised_leads': total_overseeing,
             'supervised_agents_count': supervised_agents,
             'team_registered_count': registered_count,
+            'registered_leads_count': registered_count,
             'team_conversion_percentage': conversion_rate,
+            'team_conversion_rate': conversion_rate,
             'manager_critical_breaches': manager_breaches,
+            'level1_overdue_count': manager_breaches,
             'active_escalations': active_escalations,
+            'assigned_leads': assigned_leads_list,
         }
 
     @classmethod
@@ -197,6 +241,8 @@ class TeamPerformanceService:
         return {
             'support_agents': support_stats,
             'managers': manager_stats,
+            'support_leaderboard': support_stats,
+            'manager_leaderboard': manager_stats,
         }
 
 

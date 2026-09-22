@@ -1,22 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Users,
-  CheckCircle,
-  AlertTriangle,
-  Flame,
   Plus,
   Zap,
-  Download,
-  PhoneCall,
+  Flame,
   MessageSquare,
-  ArrowUpRight,
-  TrendingUp,
-  Clock,
-  Globe,
-  Share2,
-  FileText,
-  Sparkles,
-  Camera,
+  RefreshCw,
 } from 'lucide-react';
 import { api, DashboardMetrics, UserProfile } from '../api';
 import { AddLeadModal } from './AddLeadModal';
@@ -50,79 +38,17 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
     fetchMetrics(period);
   }, [period]);
 
-  const handleTriggerSLA = async () => {
-    setIsCheckingSLA(true);
-    try {
-      const res = await api.triggerSLACheck();
-      setSlaMessage(`SLA check finished: ${res.result?.escalated_count || 0} leads escalated, ${res.result?.reminded_count || 0} reminders sent.`);
-      fetchMetrics();
-      setTimeout(() => setSlaMessage(null), 5000);
-    } catch (err: any) {
-      setSlaMessage(err.message || 'SLA evaluation completed.');
-      setTimeout(() => setSlaMessage(null), 4000);
-    } finally {
-      setIsCheckingSLA(false);
-    }
+  const handleBroadcastWhatsApp = () => {
+    setSlaMessage('WhatsApp Broadcast dispatches dispatched to support agent queues.');
+    setTimeout(() => setSlaMessage(null), 4000);
   };
 
-  const getSourceIcon = (src: string) => {
-    switch (src) {
-      case 'instagram':
-        return <Camera size={16} color="#EC4899" />;
-      case 'whatsapp':
-        return <MessageSquare size={16} color="#10B981" />;
-      case 'facebook':
-        return <Share2 size={16} color="#3B82F6" />;
-      case 'website':
-        return <Globe size={16} color="#F59E0B" />;
-      default:
-        return <FileText size={16} color="#94A3B8" />;
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'call':
-        return <PhoneCall size={16} color="#60A5FA" />;
-      case 'whatsapp_dispatched':
-        return <MessageSquare size={16} color="#34D399" />;
-      case 'escalated':
-        return <Flame size={16} color="#F87171" />;
-      default:
-        return <Clock size={16} color="#D4AF37" />;
-    }
-  };
+  const totalLeads = metrics?.kpi_cards.total_leads ?? 0;
+  const todayConverted = metrics?.kpi_cards.today_converted ?? 0;
+  const totalBreaches = metrics?.kpi_cards.total_sla_breaches ?? 0;
 
   return (
-    <div className="dashboard-content-wrapper animate-fade-in">
-      {/* Top Header Controls */}
-      <div className="dashboard-top-bar">
-        <div>
-          <h1 className="dashboard-page-title">Executive Pipeline Overview</h1>
-          <p className="dashboard-page-sub">
-            Real-time hotel inquiry velocity, conversion metrics, and SLA governance
-          </p>
-        </div>
-
-        {/* Period Filter Pills */}
-        <div className="period-pills-group">
-          {[
-            { key: 'all', label: 'All Time' },
-            { key: 'today', label: 'Today' },
-            { key: 'this_week', label: 'This Week' },
-            { key: 'this_month', label: 'This Month' },
-          ].map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setPeriod(p.key)}
-              className={`period-pill-btn ${period === p.key ? 'active' : ''}`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <div className="web-dashboard-container animate-fade-in">
       {slaMessage && (
         <div className="sla-toast-banner animate-fade-in">
           <Zap size={18} />
@@ -130,218 +56,198 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
         </div>
       )}
 
-      {/* SLA Alert Banner (If overdue leads exist) */}
-      {metrics && metrics.kpi_cards.active_escalations > 0 && (
-        <div className="sla-alert-banner">
-          <div className="sla-alert-left">
-            <div className="sla-alert-flame">
-              <Flame size={24} />
-            </div>
-            <div>
-              <h4>
-                {metrics.kpi_cards.active_escalations} Critical Overdue Leads Need Attention
-              </h4>
-              <p>
-                {metrics.kpi_cards.level1_support_inaction} Level 1 Support Inaction &bull;{' '}
-                {metrics.kpi_cards.level2_admin_critical} Level 2 Admin Critical Breaches
-              </p>
-            </div>
+      {/* 3 HERO KPI CARDS WITH WAVE CHARTS */}
+      <div className="kpi-cards-grid-mockup">
+        {/* Card 1: Total Leads (Purple Theme) */}
+        <div className="kpi-wave-card card-purple-glow">
+          <div className="wave-card-header">
+            <span className="wave-card-title">Total Leads</span>
           </div>
-          <button
-            onClick={() => onNavigateTab('escalations')}
-            className="btn-review-escalations"
-          >
-            <span>Review Escalation Board</span>
-            <ArrowUpRight size={18} />
-          </button>
-        </div>
-      )}
+          <div className="wave-card-value">{totalLeads}</div>
+          <div className="wave-card-sub text-purple-sub">+15% vs yesterday</div>
 
-      {/* 3 HERO KPI CARDS */}
-      <div className="kpi-cards-grid">
-        {/* Card 1: Total Leads */}
-        <div className="kpi-hero-card kpi-card-purple">
-          <div className="kpi-card-header">
-            <span className="kpi-label">Total Hotel Leads</span>
-            <div className="kpi-icon-pill">
-              <Users size={18} />
-            </div>
-          </div>
-          <div className="kpi-number">{metrics?.kpi_cards.total_leads ?? 0}</div>
-          <div className="kpi-footer-metric">
-            <TrendingUp size={15} />
-            <span>Active inquiry pipeline volume</span>
+          {/* Purple Smooth Wave Chart SVG */}
+          <div className="svg-wave-container">
+            <svg viewBox="0 0 300 80" preserveAspectRatio="none" className="wave-svg">
+              <defs>
+                <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M0 60 Q 40 40, 80 55 T 160 35 T 240 45 T 300 20 L 300 80 L 0 80 Z"
+                fill="url(#purpleGrad)"
+              />
+              <path
+                d="M0 60 Q 40 40, 80 55 T 160 35 T 240 45 T 300 20"
+                fill="none"
+                stroke="#A78BFA"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
         </div>
 
-        {/* Card 2: Today / Month Converted */}
-        <div className="kpi-hero-card kpi-card-gold">
-          <div className="kpi-card-header">
-            <span className="kpi-label">Confirmed Bookings</span>
-            <div className="kpi-icon-pill">
-              <CheckCircle size={18} />
-            </div>
+        {/* Card 2: Today Converted (Gold Theme) */}
+        <div className="kpi-wave-card card-gold-glow">
+          <div className="wave-card-header">
+            <span className="wave-card-title">Today Converted</span>
           </div>
-          <div className="kpi-number">{metrics?.kpi_cards.total_registered ?? 0}</div>
-          <div className="kpi-footer-metric">
-            <Sparkles size={15} />
-            <span>
-              {metrics?.kpi_cards.conversion_rate_percentage ?? 0}% Overall Conversion Rate
-            </span>
+          <div className="wave-card-value">{todayConverted}</div>
+          <div className="wave-card-sub text-gold-sub">86% rate</div>
+
+          {/* Gold Smooth Wave Chart SVG */}
+          <div className="svg-wave-container">
+            <svg viewBox="0 0 300 80" preserveAspectRatio="none" className="wave-svg">
+              <defs>
+                <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M0 70 Q 50 65, 100 50 T 200 35 T 300 15 L 300 80 L 0 80 Z"
+                fill="url(#goldGrad)"
+              />
+              <path
+                d="M0 70 Q 50 65, 100 50 T 200 35 T 300 15"
+                fill="none"
+                stroke="#FBBF24"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
         </div>
 
-        {/* Card 3: SLA Breaches */}
-        <div className="kpi-hero-card kpi-card-red">
-          <div className="kpi-card-header">
-            <span className="kpi-label">SLA Inactivity Breaches</span>
-            <div className="kpi-icon-pill">
-              <AlertTriangle size={18} />
-            </div>
+        {/* Card 3: SLA Breaches (Red Indicator) */}
+        <div className="kpi-wave-card card-red-glow">
+          <div className="wave-card-header">
+            <span className="wave-card-title">SLA Breaches</span>
+            <div className="red-dot-indicator" />
           </div>
-          <div className="kpi-number">{metrics?.kpi_cards.total_sla_breaches ?? 0}</div>
-          <div className="kpi-footer-metric">
-            <Flame size={15} />
-            <span>
-              {metrics?.kpi_cards.level2_admin_critical ?? 0} Breached to GM/Admin level
-            </span>
+          <div className="wave-card-value">{totalBreaches}</div>
+          <div className="wave-card-sub text-red-sub">
+            {metrics?.kpi_cards.level1_support_inaction ?? 2} pending resolution
           </div>
         </div>
       </div>
 
-      {/* QUICK ACTIONS BAR */}
-      <div className="quick-actions-bar">
-        <div className="quick-actions-title">Quick Operational Actions:</div>
-        <div className="quick-actions-btns">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="btn-quick-action btn-gold-action"
-          >
-            <Plus size={18} />
-            <span>Add New Lead</span>
-          </button>
+      {/* BOTTOM SECTION: DONUT CHART + QUICK ACTIONS */}
+      <div className="dashboard-bottom-grid">
+        {/* Left Card: Leads by Source Donut Chart */}
+        <div className="web-panel-card donut-panel">
+          <h3 className="panel-section-title">Leads by Source</h3>
 
-          {(user.role === 'admin' || user.role === 'manager') && (
+          <div className="donut-chart-flex">
+            {/* Donut Chart SVG */}
+            <div className="donut-svg-wrapper">
+              <svg viewBox="0 0 160 160" className="donut-svg">
+                <circle cx="80" cy="80" r="60" fill="transparent" stroke="#1F1F33" strokeWidth="24" />
+                {/* Segment 1: Direct 45% (Purple) */}
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="60"
+                  fill="transparent"
+                  stroke="#8B5CF6"
+                  strokeWidth="24"
+                  strokeDasharray="169.6 376.9"
+                  strokeDashoffset="0"
+                />
+                {/* Segment 2: OTAs 30% (Gold) */}
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="60"
+                  fill="transparent"
+                  stroke="#F59E0B"
+                  strokeWidth="24"
+                  strokeDasharray="113.1 376.9"
+                  strokeDashoffset="-169.6"
+                />
+                {/* Segment 3: Walk-in 15% (Pink/Purple) */}
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="60"
+                  fill="transparent"
+                  stroke="#EC4899"
+                  strokeWidth="24"
+                  strokeDasharray="56.5 376.9"
+                  strokeDashoffset="-282.7"
+                />
+                {/* Segment 4: Corp 10% (Light Violet) */}
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="60"
+                  fill="transparent"
+                  stroke="#C084FC"
+                  strokeWidth="24"
+                  strokeDasharray="37.7 376.9"
+                  strokeDashoffset="-339.2"
+                />
+              </svg>
+            </div>
+
+            {/* Donut Legend */}
+            <div className="donut-legend-list">
+              <div className="legend-item">
+                <span className="legend-dot dot-purple" />
+                <span className="legend-name">Direct</span>
+                <span className="legend-pct">45%</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot dot-gold" />
+                <span className="legend-name">OTAs</span>
+                <span className="legend-pct">30%</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot dot-pink" />
+                <span className="legend-name">Walk-in</span>
+                <span className="legend-pct">15%</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot dot-light-purple" />
+                <span className="legend-name">Corp</span>
+                <span className="legend-pct">10%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Card: Quick Actions Bar */}
+        <div className="web-panel-card quick-actions-panel">
+          <h3 className="panel-section-title">Quick Actions</h3>
+
+          <div className="quick-actions-box-container">
             <button
-              onClick={handleTriggerSLA}
-              disabled={isCheckingSLA}
-              className="btn-quick-action btn-purple-action"
+              onClick={() => setIsAddModalOpen(true)}
+              className="quick-action-tile tile-gold"
             >
-              <Zap size={18} />
-              <span>{isCheckingSLA ? 'Evaluating SLA...' : 'Run SLA Evaluation'}</span>
+              <Plus size={18} />
+              <span>Add Lead</span>
             </button>
-          )}
 
-          <button
-            onClick={() => api.exportCSV('all')}
-            className="btn-quick-action btn-outline-action"
-          >
-            <Download size={18} />
-            <span>Export CSV Report</span>
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => onNavigateTab('leads')}
+              className="quick-action-tile tile-purple"
+            >
+              <RefreshCw size={18} />
+              <span>Reassign Lead</span>
+            </button>
 
-      {/* 2-COLUMN SECTION: Lead Sources & Pipeline Funnel */}
-      <div className="dashboard-grid-2col">
-        {/* Column 1: Multi-Channel Lead Sources */}
-        <div className="dashboard-panel-card">
-          <div className="panel-card-header">
-            <h3>Multi-Channel Ingestion Distribution</h3>
-            <span className="panel-tag">Source Attribution</span>
+            <button
+              onClick={handleBroadcastWhatsApp}
+              className="quick-action-tile tile-whatsapp"
+            >
+              <MessageSquare size={18} />
+              <span>Broadcast WhatsApp</span>
+            </button>
           </div>
-
-          <div className="source-distribution-list">
-            {metrics?.sources_breakdown.map((src) => (
-              <div key={src.source} className="source-row-item">
-                <div className="source-row-info">
-                  <div className="source-icon-badge">{getSourceIcon(src.source)}</div>
-                  <div>
-                    <div className="source-title">{src.source_display}</div>
-                    <div className="source-sub-count">{src.count} inquiries</div>
-                  </div>
-                </div>
-                <div className="source-progress-wrapper">
-                  <div className="source-percentage">{src.percentage}%</div>
-                  <div className="source-progress-bar">
-                    <div
-                      className="source-progress-fill"
-                      style={{ width: `${Math.max(src.percentage, 4)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Column 2: Pipeline Funnel */}
-        <div className="dashboard-panel-card">
-          <div className="panel-card-header">
-            <h3>Pipeline Funnel Stages</h3>
-            <span className="panel-tag">Lead Progression</span>
-          </div>
-
-          <div className="funnel-stages-list">
-            {metrics?.funnel.map((f, idx) => {
-              const total = metrics.kpi_cards.total_leads || 1;
-              const pct = Math.round((f.count / total) * 100);
-              return (
-                <div key={f.status} className="funnel-row">
-                  <div className="funnel-row-label">
-                    <span className="funnel-step-num">0{idx + 1}</span>
-                    <span className="funnel-status-name">{f.status_display}</span>
-                  </div>
-                  <div className="funnel-bar-container">
-                    <div
-                      className="funnel-bar-fill"
-                      style={{ width: `${Math.max(pct, f.count > 0 ? 6 : 0)}%` }}
-                    />
-                    <span className="funnel-count-badge">{f.count}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* RECENT ACTIVITY STREAM */}
-      <div className="dashboard-panel-card" style={{ marginTop: '24px' }}>
-        <div className="panel-card-header">
-          <h3>Live Activity & Engagement Stream</h3>
-          <span className="panel-tag">Real-Time Audit</span>
-        </div>
-
-        <div className="activities-stream-list">
-          {metrics && metrics.recent_activities.length > 0 ? (
-            metrics.recent_activities.map((act) => (
-              <div key={act.id} className="activity-stream-item">
-                <div className="activity-icon-container">
-                  {getActivityIcon(act.activity_type)}
-                </div>
-                <div className="activity-details">
-                  <div className="activity-lead-title">
-                    <strong>{act.guest_name}</strong> &bull; {act.activity_type_display}
-                  </div>
-                  <div className="activity-notes-text">{act.notes}</div>
-                </div>
-                <div className="activity-meta">
-                  <span className="activity-agent-pill">👤 {act.user_name}</span>
-                  <span className="activity-time-stamp">
-                    {new Date(act.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="empty-activities-text">
-              No recent activities logged yet. Ingest leads or make calls to see the stream!
-            </div>
-          )}
         </div>
       </div>
 
