@@ -80,12 +80,23 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
         </div>
 
         <div className="top-bar-actions-right">
+          {(user.role === 'admin' || user.role === 'manager') && (
+            <button
+              onClick={() => setIsAddStaffModalOpen(true)}
+              className="btn-quick-action btn-gold-action"
+              style={{ background: 'linear-gradient(135deg, #D4AF37, #F59E0B)', color: '#000', fontWeight: 700 }}
+            >
+              <UserPlus size={18} />
+              <span>+ Add Team Member</span>
+            </button>
+          )}
           <button onClick={() => fetchTeamStats()} className="btn-icon-refresh" title="Refresh metrics">
             <RefreshCw size={17} />
           </button>
           <button
             onClick={() => api.exportCSV('staff')}
-            className="btn-quick-action btn-gold-action"
+            className="btn-quick-action"
+            style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#E2E8F0' }}
           >
             <Download size={18} />
             <span>Export CSV Report</span>
@@ -519,6 +530,14 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* ADD STAFF MODAL */}
+      <AddStaffModal
+        isOpen={isAddStaffModalOpen}
+        userRole={user.role}
+        onClose={() => setIsAddStaffModalOpen(false)}
+        onStaffAdded={() => fetchTeamStats()}
+      />
     </div>
   );
 };
