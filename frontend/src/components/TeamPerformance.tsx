@@ -15,8 +15,11 @@ import {
   FileText,
   User,
   CheckCircle,
+  Trash2,
+  UserPlus,
 } from 'lucide-react';
 import { api, UserProfile } from '../api';
+import { AddStaffModal } from './AddStaffModal';
 
 interface TeamPerformanceProps {
   user: UserProfile;
@@ -27,6 +30,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'support' | 'managers'>('support');
   const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
+  const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState<boolean>(false);
 
   const fetchTeamStats = async () => {
     setIsLoading(true);
@@ -38,6 +42,22 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
       setTeamData({ support_leaderboard: [], manager_leaderboard: [] });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteStaff = async (staffId: number, staffName: string) => {
+    if (!window.confirm(`Are you sure you want to remove staff member "${staffName}"?`)) {
+      return;
+    }
+    try {
+      await api.deleteStaff(staffId);
+      alert(`Staff member "${staffName}" removed successfully.`);
+      if (selectedStaff && (selectedStaff.user_id === staffId || selectedStaff.id === staffId)) {
+        setSelectedStaff(null);
+      }
+      fetchTeamStats();
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove staff member.');
     }
   };
 
@@ -117,10 +137,12 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                   <th>Conversion Rate</th>
                   <th>SLA Breaches</th>
                   <th>Avg Duration</th>
+                  {(user.role === 'admin' || user.role === 'manager') && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {supportLeaderboard.map((agent: any, idx: number) => {
+                  const staffId = agent.id || agent.user_id;
                   const assignedCount = agent.leads_assigned ?? agent.assigned_leads_count ?? agent.assigned_leads?.length ?? 0;
                   const callsLogged = agent.calls_logged ?? agent.calls_completed ?? 0;
                   const convRate = agent.conversion_rate_percentage ?? agent.conversion_rate ?? 0;
@@ -128,7 +150,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                   const avgDurationStr = agent.avg_call_duration_display || (agent.avg_call_duration_seconds ? `${Math.floor(agent.avg_call_duration_seconds / 60)}m ${agent.avg_call_duration_seconds % 60}s` : '0m 0s');
 
                   return (
-                    <tr key={agent.user_id || agent.id || idx}>
+                    <tr key={staffId || idx}>
                       <td>
                         <div
                           className="staff-rank-cell clickable-staff"
@@ -193,6 +215,29 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                           {avgDurationStr}
                         </span>
                       </td>
+                      {(user.role === 'admin' || user.role === 'manager') && (
+                        <td>
+                          <button
+                            onClick={() => handleDeleteStaff(staffId, agent.username || agent.full_name)}
+                            title="Remove staff member"
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              color: '#F87171',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            <span>Remove</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -209,17 +254,19 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                   <th>Overdue Level 1 Inactions</th>
                   <th>Confirmed Bookings</th>
                   <th>Team Conversion</th>
+                  {user.role === 'admin' && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {managerLeaderboard.map((mgr: any, idx: number) => {
+                  const staffId = mgr.id || mgr.user_id;
                   const supervisedLeads = mgr.leads_overseeing ?? mgr.total_supervised_leads ?? 0;
                   const overdueCount = mgr.manager_critical_breaches ?? mgr.level1_overdue_count ?? 0;
                   const registeredCount = mgr.team_registered_count ?? mgr.registered_leads_count ?? 0;
                   const convRate = mgr.team_conversion_percentage ?? mgr.team_conversion_rate ?? 0;
 
                   return (
-                    <tr key={mgr.user_id || mgr.id || idx}>
+                    <tr key={staffId || idx}>
                       <td>
                         <div
                           className="staff-rank-cell clickable-staff"
@@ -270,6 +317,29 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                           <span>{convRate}%</span>
                         </div>
                       </td>
+                      {user.role === 'admin' && (
+                        <td>
+                          <button
+                            onClick={() => handleDeleteStaff(staffId, mgr.username || mgr.full_name)}
+                            title="Remove manager"
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              color: '#F87171',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            <span>Remove</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -315,9 +385,33 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                   </p>
                 </div>
               </div>
-              <button onClick={() => setSelectedStaff(null)} className="modal-close-btn">
-                <X size={20} />
-              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {(user.role === 'admin' || (user.role === 'manager' && selectedStaff.role === 'support')) && (
+                  <button
+                    onClick={() => handleDeleteStaff(selectedStaff.id || selectedStaff.user_id, selectedStaff.username)}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      color: '#EF4444',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Trash2 size={16} />
+                    <span>Remove Staff</span>
+                  </button>
+                )}
+                <button onClick={() => setSelectedStaff(null)} className="modal-close-btn">
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
@@ -337,19 +431,19 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ user }) => {
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Total Assigned</span>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#A78BFA' }}>
-                    {selectedStaff.assigned_leads_count || selectedStaff.total_supervised_leads || 0} Leads
+                    {selectedStaff.assigned_leads_count ?? selectedStaff.leads_assigned ?? selectedStaff.total_supervised_leads ?? 0} Leads
                   </div>
                 </div>
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Calls Completed</span>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#60A5FA' }}>
-                    {selectedStaff.calls_completed || 18} Calls
+                    {selectedStaff.calls_completed ?? selectedStaff.calls_logged ?? 0} Calls
                   </div>
                 </div>
                 <div>
                   <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Conversion Velocity</span>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10B981' }}>
-                    {selectedStaff.conversion_rate || selectedStaff.team_conversion_rate || 21.4}%
+                    {selectedStaff.conversion_rate ?? selectedStaff.team_conversion_percentage ?? selectedStaff.team_conversion_rate ?? 0}%
                   </div>
                 </div>
               </div>

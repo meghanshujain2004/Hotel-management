@@ -1,7 +1,7 @@
 // API client for HotelCRM Backend — React Native version
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'http://192.168.29.83:8000';
+const API_BASE_URL = 'https://hotel-management-rm4l.onrender.com';
 
 export interface UserProfile {
   id: number;

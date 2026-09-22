@@ -328,4 +328,31 @@ export const api = {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   },
+
+  // Staff Management: Delete Staff Member
+  async deleteStaff(staffId: number): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/api/users/staff/${staffId}/`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to remove staff member');
+    }
+    return res.json().catch(() => ({ message: 'Staff member removed successfully' }));
+  },
+
+  // Staff Management: Add New Staff Member
+  async createStaff(staffData: { username: string; email?: string; phone?: string; role: 'manager' | 'support'; password?: string }): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/api/users/staff/`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(staffData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to add staff member');
+    }
+    return res.json();
+  },
 };

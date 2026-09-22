@@ -46,6 +46,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
   const totalLeads = metrics?.kpi_cards.total_leads ?? 0;
   const todayConverted = metrics?.kpi_cards.today_converted ?? 0;
   const totalBreaches = metrics?.kpi_cards.total_sla_breaches ?? 0;
+  const pendingInaction = metrics?.kpi_cards.level1_support_inaction ?? 0;
+  const convRate = metrics?.kpi_cards.conversion_rate_percentage ?? (totalLeads > 0 ? Math.round((todayConverted / totalLeads) * 100) : 0);
+
+  const sourcesData = metrics?.sources_breakdown && metrics.sources_breakdown.length > 0
+    ? metrics.sources_breakdown
+    : [];
+
+  const sourceColors = ['#8B5CF6', '#F59E0B', '#EC4899', '#C084FC', '#10B981', '#3B82F6'];
+  const CIRCUMFERENCE = 376.99;
+  let runningOffset = 0;
 
   return (
     <div className="web-dashboard-container animate-fade-in">
@@ -64,7 +74,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
             <span className="wave-card-title">Total Leads</span>
           </div>
           <div className="wave-card-value">{totalLeads}</div>
-          <div className="wave-card-sub text-purple-sub">+15% vs yesterday</div>
+          <div className="wave-card-sub text-purple-sub">
+            {totalLeads > 0 ? `${totalLeads} total lead inquiries` : 'No active leads yet'}
+          </div>
 
           {/* Purple Smooth Wave Chart SVG */}
           <div className="svg-wave-container">
@@ -96,7 +108,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
             <span className="wave-card-title">Today Converted</span>
           </div>
           <div className="wave-card-value">{todayConverted}</div>
-          <div className="wave-card-sub text-gold-sub">86% rate</div>
+          <div className="wave-card-sub text-gold-sub">{convRate}% conversion rate</div>
 
           {/* Gold Smooth Wave Chart SVG */}
           <div className="svg-wave-container">
@@ -126,11 +138,11 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
         <div className="kpi-wave-card card-red-glow">
           <div className="wave-card-header">
             <span className="wave-card-title">SLA Breaches</span>
-            <div className="red-dot-indicator" />
+            {totalBreaches > 0 && <div className="red-dot-indicator" />}
           </div>
           <div className="wave-card-value">{totalBreaches}</div>
           <div className="wave-card-sub text-red-sub">
-            {metrics?.kpi_cards.level1_support_inaction ?? 2} pending resolution
+            {pendingInaction} pending resolution
           </div>
         </div>
       </div>
@@ -146,75 +158,52 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ user, on
             <div className="donut-svg-wrapper">
               <svg viewBox="0 0 160 160" className="donut-svg">
                 <circle cx="80" cy="80" r="60" fill="transparent" stroke="#1F1F33" strokeWidth="24" />
-                {/* Segment 1: Direct 45% (Purple) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#8B5CF6"
-                  strokeWidth="24"
-                  strokeDasharray="169.6 376.9"
-                  strokeDashoffset="0"
-                />
-                {/* Segment 2: OTAs 30% (Gold) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#F59E0B"
-                  strokeWidth="24"
-                  strokeDasharray="113.1 376.9"
-                  strokeDashoffset="-169.6"
-                />
-                {/* Segment 3: Walk-in 15% (Pink/Purple) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#EC4899"
-                  strokeWidth="24"
-                  strokeDasharray="56.5 376.9"
-                  strokeDashoffset="-282.7"
-                />
-                {/* Segment 4: Corp 10% (Light Violet) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#C084FC"
-                  strokeWidth="24"
-                  strokeDasharray="37.7 376.9"
-                  strokeDashoffset="-339.2"
-                />
+
+                {sourcesData.length === 0 ? (
+                  <circle cx="80" cy="80" r="60" fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="24" />
+                ) : (
+                  sourcesData.map((item, idx) => {
+                    const strokeDash = (item.percentage / 100) * CIRCUMFERENCE;
+                    const offset = runningOffset;
+                    runningOffset += strokeDash;
+                    const color = sourceColors[idx % sourceColors.length];
+
+                    return (
+                      <circle
+                        key={item.source || idx}
+                        cx="80"
+                        cy="80"
+                        r="60"
+                        fill="transparent"
+                        stroke={color}
+                        strokeWidth="24"
+                        strokeDasharray={`${strokeDash} ${CIRCUMFERENCE}`}
+                        strokeDashoffset={`-${offset}`}
+                      />
+                    );
+                  })
+                )}
               </svg>
             </div>
 
             {/* Donut Legend */}
             <div className="donut-legend-list">
-              <div className="legend-item">
-                <span className="legend-dot dot-purple" />
-                <span className="legend-name">Direct</span>
-                <span className="legend-pct">45%</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot dot-gold" />
-                <span className="legend-name">OTAs</span>
-                <span className="legend-pct">30%</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot dot-pink" />
-                <span className="legend-name">Walk-in</span>
-                <span className="legend-pct">15%</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot dot-light-purple" />
-                <span className="legend-name">Corp</span>
-                <span className="legend-pct">10%</span>
-              </div>
+              {sourcesData.length === 0 ? (
+                <div style={{ color: '#94A3B8', fontSize: '0.85rem', fontStyle: 'italic', padding: '10px 0' }}>
+                  No lead source data registered yet. Add leads to view source breakdown.
+                </div>
+              ) : (
+                sourcesData.map((item, idx) => (
+                  <div key={item.source || idx} className="legend-item">
+                    <span
+                      className="legend-dot"
+                      style={{ backgroundColor: sourceColors[idx % sourceColors.length] }}
+                    />
+                    <span className="legend-name">{item.source}</span>
+                    <span className="legend-pct">{item.percentage}%</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
