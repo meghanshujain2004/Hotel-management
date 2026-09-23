@@ -364,5 +364,32 @@ export const api = {
     }
     return true;
   },
+
+  async uploadLeadExcel(file: { uri: string; name: string; type?: string }) {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    } as any);
+
+    const token = await AsyncStorage.getItem('access_token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/leads/upload-excel/`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errMsg = await parseApiError(res, 'Failed to upload Excel file');
+      throw new Error(errMsg);
+    }
+    return res.json();
+  },
 };
 

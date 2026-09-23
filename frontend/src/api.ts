@@ -355,4 +355,28 @@ export const api = {
     }
     return res.json();
   },
+
+  // Leads: Upload Excel / CSV Bulk File
+  async uploadLeadExcel(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/leads/upload-excel/`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.error || 'Failed to upload Excel file');
+    }
+    return res.json();
+  },
 };

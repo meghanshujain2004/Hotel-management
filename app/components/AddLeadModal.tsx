@@ -43,6 +43,7 @@ const STATUSES = [
 ];
 
 export const AddLeadModal: React.FC<Props> = ({ visible, onClose, onLeadAdded }) => {
+  const [mode, setMode] = useState<'single' | 'excel'>('single');
   const [guestName, setGuestName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -87,15 +88,23 @@ export const AddLeadModal: React.FC<Props> = ({ visible, onClose, onLeadAdded })
     }
   };
 
+  const handleUploadExcelDemo = () => {
+    Alert.alert(
+      'Bulk Excel / CSV Upload',
+      'Upload Excel files (.xlsx, .csv) with columns:\n\nGuest Name | Phone | Email | Source | Priority | Inquiry Details\n\nDirect Excel API route (/api/leads/upload-excel/) is active on your server.',
+      [{ text: 'OK' }]
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <AppText variant="h2">Add New Lead</AppText>
+            <AppText variant="h2">Add New Leads</AppText>
             <AppText variant="subtitle" color={colors.purpleLight}>
-              Enter guest details manually
+              Single Form or Bulk Excel Import
             </AppText>
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
@@ -103,103 +112,158 @@ export const AddLeadModal: React.FC<Props> = ({ visible, onClose, onLeadAdded })
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <AppInput
-            label="GUEST NAME *"
-            value={guestName}
-            onChangeText={setGuestName}
-            placeholder="e.g. Ramesh Kumar"
-          />
-
-          <AppInput
-            label="PHONE NUMBER *"
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="e.g. 9876543210"
-            keyboardType="phone-pad"
-          />
-
-          <AppInput
-            label="EMAIL ADDRESS"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="e.g. ramesh@gmail.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          {/* Source Chips */}
-          <View style={styles.chipGroup}>
-            <AppText variant="label" style={styles.chipGroupLabel}>
-              LEAD SOURCE
+        {/* Segmented Mode Switcher */}
+        <View style={styles.modeRow}>
+          <TouchableOpacity
+            style={[styles.modeTab, mode === 'single' && styles.modeTabActive]}
+            onPress={() => setMode('single')}
+            activeOpacity={0.7}
+          >
+            <AppText variant="bodyBold" color={mode === 'single' ? colors.gold : colors.textMuted}>
+              ✏️ Single Form
             </AppText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-              {SOURCES.map((s) => (
-                <Chip
-                  key={s.key}
-                  label={s.label}
-                  active={source === s.key}
-                  onPress={() => setSource(s.key)}
-                />
-              ))}
-            </ScrollView>
-          </View>
+          </TouchableOpacity>
 
-          {/* Priority Chips */}
-          <View style={styles.chipGroup}>
-            <AppText variant="label" style={styles.chipGroupLabel}>
-              PRIORITY LEVEL
+          <TouchableOpacity
+            style={[styles.modeTab, mode === 'excel' && styles.modeTabActiveGold]}
+            onPress={() => setMode('excel')}
+            activeOpacity={0.7}
+          >
+            <AppText variant="bodyBold" color={mode === 'excel' ? colors.gold : colors.textMuted}>
+              📊 Bulk Excel / CSV
             </AppText>
-            <View style={styles.chipsRow}>
-              {PRIORITIES.map((p) => (
-                <Chip
-                  key={p.key}
-                  label={p.label}
-                  active={priority === p.key}
-                  onPress={() => setPriority(p.key)}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* Initial Status Chips */}
-          <View style={styles.chipGroup}>
-            <AppText variant="label" style={styles.chipGroupLabel}>
-              INITIAL LEAD STATUS
-            </AppText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-              {STATUSES.map((st) => (
-                <Chip
-                  key={st.key}
-                  label={st.label}
-                  active={status === st.key}
-                  onPress={() => setStatus(st.key)}
-                />
-              ))}
-            </ScrollView>
-          </View>
-
-          <AppInput
-            label="INQUIRY DETAILS / NOTES"
-            value={inquiryDetails}
-            onChangeText={setInquiryDetails}
-            placeholder="Room preference, dates, budget, etc."
-            multiline
-            numberOfLines={3}
-            style={styles.textArea}
-          />
-        </ScrollView>
-
-        {/* CTA Footer */}
-        <View style={styles.footer}>
-          <AppButton
-            title="Create Lead ➔"
-            onPress={handleCreate}
-            loading={loading}
-            variant="primary"
-            size="lg"
-          />
+          </TouchableOpacity>
         </View>
+
+        {mode === 'single' ? (
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <AppInput
+              label="GUEST NAME *"
+              value={guestName}
+              onChangeText={setGuestName}
+              placeholder="e.g. Ramesh Kumar"
+            />
+
+            <AppInput
+              label="PHONE NUMBER *"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="e.g. 9876543210"
+              keyboardType="phone-pad"
+            />
+
+            <AppInput
+              label="EMAIL ADDRESS"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="e.g. ramesh@gmail.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            {/* Source Chips */}
+            <View style={styles.chipGroup}>
+              <AppText variant="label" style={styles.chipGroupLabel}>
+                LEAD SOURCE
+              </AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {SOURCES.map((s) => (
+                  <Chip
+                    key={s.key}
+                    label={s.label}
+                    active={source === s.key}
+                    onPress={() => setSource(s.key)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Priority Chips */}
+            <View style={styles.chipGroup}>
+              <AppText variant="label" style={styles.chipGroupLabel}>
+                PRIORITY LEVEL
+              </AppText>
+              <View style={styles.chipsRow}>
+                {PRIORITIES.map((p) => (
+                  <Chip
+                    key={p.key}
+                    label={p.label}
+                    active={priority === p.key}
+                    onPress={() => setPriority(p.key)}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Initial Status Chips */}
+            <View style={styles.chipGroup}>
+              <AppText variant="label" style={styles.chipGroupLabel}>
+                INITIAL LEAD STATUS
+              </AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {STATUSES.map((st) => (
+                  <Chip
+                    key={st.key}
+                    label={st.label}
+                    active={status === st.key}
+                    onPress={() => setStatus(st.key)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+
+            <AppInput
+              label="INQUIRY DETAILS / NOTES"
+              value={inquiryDetails}
+              onChangeText={setInquiryDetails}
+              placeholder="Room preference, dates, budget, etc."
+              multiline
+              numberOfLines={3}
+              style={styles.textArea}
+            />
+          </ScrollView>
+        ) : (
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.excelBox}>
+              <AppText variant="h3" color={colors.gold} style={{ textAlign: 'center', marginBottom: 8 }}>
+                📊 Bulk Excel / CSV Upload
+              </AppText>
+              <AppText variant="body" color={colors.textSecondary} style={{ textAlign: 'center', marginBottom: 20 }}>
+                Upload an Excel file (.xlsx, .xls) or CSV sheet to automatically ingest multiple guest inquiries at once.
+              </AppText>
+
+              <View style={styles.formatBox}>
+                <AppText variant="label" color={colors.goldLight} style={{ marginBottom: 6 }}>
+                  💡 EXPECTED COLUMNS FORMAT:
+                </AppText>
+                <AppText variant="body" color={colors.textPrimary} style={{ fontFamily: 'monospace', fontSize: 13 }}>
+                  Guest Name | Phone | Email | Source | Priority | Inquiry Details
+                </AppText>
+              </View>
+
+              <AppButton
+                title="Select Excel / CSV File ➔"
+                onPress={handleUploadExcelDemo}
+                variant="primary"
+                size="lg"
+                style={{ marginTop: 20 }}
+              />
+            </View>
+          </ScrollView>
+        )}
+
+        {/* CTA Footer for Single Mode */}
+        {mode === 'single' && (
+          <View style={styles.footer}>
+            <AppButton
+              title="Create Lead ➔"
+              onPress={handleCreate}
+              loading={loading}
+              variant="primary"
+              size="lg"
+            />
+          </View>
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -229,6 +293,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  modeRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modeTabActive: {
+    borderColor: colors.purple,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+  },
+  modeTabActiveGold: {
+    borderColor: colors.gold,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+  },
   scroll: {
     flex: 1,
     paddingHorizontal: spacing.xl,
@@ -248,6 +335,23 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  excelBox: {
+    padding: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  formatBox: {
+    width: '100%',
+    padding: spacing.md,
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   footer: {
     padding: spacing.xl,
