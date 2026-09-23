@@ -9,6 +9,7 @@ from .views import (
     EscalationFeedView,
     CheckEscalationsView,
     WhatsAppTemplateViewSet,
+    LeadExcelUploadView,
     DueFollowupsView,
     SendTemplateMessageView,
 )
@@ -19,6 +20,7 @@ router.register(r'', LeadViewSet, basename='lead')
 
 urlpatterns = [
     # Customer Support Calling Workspace (Screen 5)
+    path('upload-excel/', LeadExcelUploadView.as_view(), name='leads-upload-excel'),
     path('queue/active/', ActiveQueueView.as_view(), name='queue-active'),
     path('queue/disposition/', DispositionSubmitView.as_view(), name='queue-disposition'),
 

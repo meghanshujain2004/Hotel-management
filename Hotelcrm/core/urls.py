@@ -30,6 +30,7 @@ def api_root_view(request):
             },
             'leads': {
                 'directory': '/api/leads/',
+                'upload_excel': '/api/leads/upload-excel/',
                 'queue_active': '/api/leads/queue/active/',
                 'queue_disposition': '/api/leads/queue/disposition/',
                 'escalations': '/api/leads/escalations/',

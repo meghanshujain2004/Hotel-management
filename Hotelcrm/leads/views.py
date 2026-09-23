@@ -1,9 +1,13 @@
+import openpyxl
+import csv
+import io
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status, viewsets, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from users.permissions import IsAdminRole, IsManagerRole, IsSupportRole
 from .models import Lead, ActivityLog, WhatsAppTemplate
@@ -82,6 +86,91 @@ class LeadViewSet(viewsets.ModelViewSet):
         if self.action == 'destroy':
             return [IsAdminRole()]
         return [IsAuthenticated()]
+
+
+class LeadExcelUploadView(APIView):
+    """
+    API View to upload Excel (.xlsx, .xls, .xlsm) or CSV files and import leads in bulk.
+    Expected Headers: Guest Name, Phone, Email, Source, Priority, Inquiry Details
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+
+        if not file_obj:
+            return Response({'detail': 'No file uploaded. Please attach an Excel or CSV file.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        file_name = file_obj.name.lower()
+        rows_data = []
+
+        try:
+            # 1. Parse Excel files (.xlsx, .xls, .xlsm)
+            if file_name.endswith('.xlsx') or file_name.endswith('.xls') or file_name.endswith('.xlsm'):
+                wb = openpyxl.load_workbook(file_obj, data_only=True)
+                sheet = wb.active
+
+                headers = [str(cell.value).strip().lower() if cell.value else '' for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    if not any(row):
+                        continue
+                    row_dict = {headers[i]: str(val).strip() if val is not None else '' for i, val in enumerate(row) if i < len(headers)}
+                    rows_data.append(row_dict)
+
+            # 2. Parse CSV files
+            elif file_name.endswith('.csv'):
+                decoded_file = file_obj.read().decode('utf-8-sig')
+                io_string = io.StringIO(decoded_file)
+                reader = csv.DictReader(io_string)
+                for row in reader:
+                    normalized_row = {str(k).strip().lower(): str(v).strip() if v is not None else '' for k, v in row.items() if k}
+                    rows_data.append(normalized_row)
+            else:
+                return Response({'detail': 'Invalid file format. Please upload an .xlsx, .xls, or .csv file.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({'detail': f'Error reading Excel file: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. Process & Map rows to Lead objects
+        created_leads = []
+        errors = []
+
+        for index, row in enumerate(rows_data, start=2):
+            guest_name = row.get('guest name') or row.get('guest_name') or row.get('name') or row.get('customer name')
+            phone = row.get('phone') or row.get('mobile') or row.get('phone number') or row.get('contact')
+            email = row.get('email') or row.get('email address') or ''
+            source = (row.get('source') or row.get('lead source') or 'manual').lower()
+            priority = (row.get('priority') or 'medium').lower()
+            inquiry_details = row.get('inquiry details') or row.get('inquiry_details') or row.get('notes') or row.get('details') or ''
+
+            if not guest_name or not phone:
+                errors.append(f"Row {index}: Missing Guest Name or Phone number")
+                continue
+
+            phone = str(phone).replace('.0', '').replace(' ', '')
+
+            lead = Lead(
+                guest_name=guest_name,
+                phone=phone,
+                email=email if email else None,
+                source=source if source in ['instagram', 'whatsapp', 'facebook', 'website', 'manual'] else 'manual',
+                priority=priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium',
+                inquiry_details=inquiry_details,
+                status='new',
+            )
+            created_leads.append(lead)
+
+        # 4. Bulk insert into database
+        if created_leads:
+            Lead.objects.bulk_create(created_leads)
+
+        return Response({
+            'message': f'Successfully imported {len(created_leads)} leads from Excel.',
+            'imported_count': len(created_leads),
+            'skipped_errors': errors
+        }, status=status.HTTP_201_CREATED)
 
 
 class ActiveQueueView(APIView):
