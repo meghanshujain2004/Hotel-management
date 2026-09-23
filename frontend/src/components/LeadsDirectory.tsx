@@ -116,6 +116,11 @@ export const LeadsDirectory: React.FC<LeadsDirectoryProps> = ({ user, onNavigate
     fetchLeads();
   }, [statusFilter, staffFilter]);
 
+  const totalCount = leads.length;
+  const calledCount = leads.filter((l) => l.status !== 'new' && l.status !== 'New').length;
+  const interestedCount = leads.filter((l) => (l.status || '').toLowerCase().includes('interested') || (l.status || '').toLowerCase().includes('followup')).length;
+  const registeredCount = leads.filter((l) => (l.status || '').toLowerCase().includes('registered')).length;
+
   return (
     <div className="web-directory-container animate-fade-in">
       {/* Header */}
@@ -131,21 +136,10 @@ export const LeadsDirectory: React.FC<LeadsDirectoryProps> = ({ user, onNavigate
       {/* Staff Summary Stat Bar */}
       <div className="staff-assigned-summary-bar">
         <span>
-          {staffFilter === 'all' ? (
-            <>
-              Total Assigned across <strong>All Staff</strong>:{' '}
-              <strong className="text-green-highlight">148 Leads</strong> |{' '}
-              <strong>45 Called</strong> | <strong>24 Interested</strong> |{' '}
-              <strong>12 Registered</strong>
-            </>
-          ) : (
-            <>
-              Total Assigned to {user.username || 'Agent'}:{' '}
-              <strong className="text-green-highlight">42 Leads</strong> |{' '}
-              <strong>18 Called</strong> | <strong>9 Interested</strong> |{' '}
-              <strong>4 Registered</strong>
-            </>
-          )}
+          Total Assigned across {staffFilter === 'all' ? <strong>All Staff</strong> : <strong>Selected Agent</strong>}:{' '}
+          <strong className="text-green-highlight">{totalCount} Leads</strong> |{' '}
+          <strong>{calledCount} Called</strong> | <strong>{interestedCount} Interested</strong> |{' '}
+          <strong>{registeredCount} Registered</strong>
         </span>
       </div>
 
