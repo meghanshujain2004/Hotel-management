@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "app",
+    "name": "HotelCRM",
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,6 +31,12 @@
       "eas": {
         "projectId": "71b799a4-ed3b-4d32-9bc0-6fe2c4ebf84f"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/71b799a4-ed3b-4d32-9bc0-6fe2c4ebf84f"
     }
   }
 }
