@@ -124,13 +124,22 @@ export const LeadsDirectory: React.FC<LeadsDirectoryProps> = ({ user, onNavigate
   return (
     <div className="web-directory-container animate-fade-in">
       {/* Header */}
-      <div className="directory-header-row">
+      <div className="directory-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="directory-main-heading">All Hotel Leads & Pipeline</h1>
           <p className="directory-sub-heading">
             Complete visibility with Customer Support grouping, call tracking and status filtering
           </p>
         </div>
+
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="btn-quick-action btn-gold-action"
+          style={{ background: 'linear-gradient(135deg, #D4AF37, #F59E0B)', color: '#000', fontWeight: 700, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+        >
+          <Plus size={18} />
+          <span>+ Add Lead</span>
+        </button>
       </div>
 
       {/* Staff Summary Stat Bar */}
@@ -207,7 +216,26 @@ export const LeadsDirectory: React.FC<LeadsDirectoryProps> = ({ user, onNavigate
                 </tr>
               </thead>
               <tbody>
-                {leads.map((lead) => {
+                {leads.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 600, color: '#CBD5E1', marginBottom: '8px' }}>
+                        No leads found in pipeline
+                      </div>
+                      <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem' }}>
+                        Add a new lead manually or bulk upload an Excel / CSV sheet.
+                      </p>
+                      <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="btn-quick-action btn-gold-action"
+                        style={{ margin: '0 auto', background: 'linear-gradient(135deg, #D4AF37, #F59E0B)', color: '#000', fontWeight: 700, padding: '8px 16px', cursor: 'pointer' }}
+                      >
+                        + Add Lead / Upload Excel
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  leads.map((lead) => {
                   const avatarChar = (lead.guest_name || 'G').charAt(0).toUpperCase();
                   const phoneStr = lead.phone ? `+91 ${lead.phone}` : '+91 993034379';
                   const sourceStr = lead.source_display || lead.source || 'Instagram';
@@ -278,7 +306,8 @@ export const LeadsDirectory: React.FC<LeadsDirectoryProps> = ({ user, onNavigate
                       </td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
